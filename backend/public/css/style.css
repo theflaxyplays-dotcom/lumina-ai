@@ -1,0 +1,14 @@
+body {
+  background: radial-gradient(circle at center, #090d16 0%, #020617 100%);
+}
+#orb.listening {
+  transform: scale(1.15);
+  box-shadow: 0 0 120px rgba(6, 182, 212, 0.9);
+}
+#orb.speaking {
+  animation: pulse-glow 0.8s infinite alternate;
+}
+@keyframes pulse-glow {
+  from { transform: scale(1.0); box-shadow: 0 0 60px rgba(168, 85, 247, 0.7); }
+  to { transform: scale(1.12); box-shadow: 0 0 110px rgba(236, 72, 153, 0.9); }
+}
