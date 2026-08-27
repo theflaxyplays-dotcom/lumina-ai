@@ -4,21 +4,16 @@ import { config } from '../config/env.js';
 export async function routeLuminaRequest(prompt, context = {}) {
   const persona = context.persona || 'maya';
   const memoryInfo = context.memoryContext || 'User: Flaxy, Location: Nepanagar / Bhopal, MP';
-  const skillText = context.skillInstruction ? `\nSkill Instructions:\n${context.skillInstruction}` : '';
   
-  const systemPrompt = `You are Lumina, the ultimate autonomous mobile AI assistant. Persona: ${persona}. Memory Context: ${memoryInfo}.${skillText}\nAlways speak naturally, warmly, and helpfully in mixed Hindi/English (Hinglish). If the user asks for code (like HTML, CSS, JS, Python), provide complete, production-ready code formatted cleanly in markdown.`;
+  const systemPrompt = `You are Lumina, the ultimate autonomous mobile AI assistant. Persona: ${persona}. Memory Context: ${memoryInfo}. Always speak naturally, warmly, and helpfully in mixed Hindi/English (Hinglish). If the user asks for code (like HTML, CSS, JS, Python), provide complete, production-ready code formatted cleanly in markdown.`;
 
-  // =========================================================================
-  // TIER 1: GOOGLE GEMINI (Gemini 3.7 Flash & Gemini 2.5 Flash)
-  // =========================================================================
+  // 1. Google Gemini (3.7 Flash & 2.5 Flash)
   if (config.geminiKey && config.geminiKey.trim()) {
     const geminiKey = config.geminiKey.trim();
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${geminiKey}`;
       const payload = {
-        contents: [
-          { role: 'user', parts: [{ text: `${systemPrompt}\n\nUser: ${prompt}` }] }
-        ]
+        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nUser: ${prompt}` }] }]
       };
       if (context.imageBase64) {
         payload.contents[0].parts.push({
@@ -29,7 +24,6 @@ export async function routeLuminaRequest(prompt, context = {}) {
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return { text, modelUsed: 'Google Gemini 3.7 Flash' };
     } catch (e) {
-      console.warn('[Router] Gemini 3.7 Flash failed, trying Gemini 2.5 Flash:', e.message);
       try {
         const url2 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         const res2 = await axios.post(url2, {
@@ -37,15 +31,11 @@ export async function routeLuminaRequest(prompt, context = {}) {
         }, { timeout: 10000 });
         const text2 = res2.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text2) return { text: text2, modelUsed: 'Google Gemini 2.5 Flash' };
-      } catch (e2) {
-        console.warn('[Router] Gemini 2.5 Flash failed:', e2.message);
-      }
+      } catch (e2) {}
     }
   }
 
-  // =========================================================================
-  // TIER 2: HUGGING FACE ROUTER (Llama 3.2 3B - 100% Active Serverless)
-  // =========================================================================
+  // 2. Hugging Face Router (Llama 3.2 3B)
   if (config.hfKey && config.hfKey.trim()) {
     try {
       const res = await axios.post('https://router.huggingface.co/hf-inference/models/meta-llama/Llama-3.2-3B-Instruct/v1/chat/completions', {
@@ -57,7 +47,7 @@ export async function routeLuminaRequest(prompt, context = {}) {
         temperature: 0.7,
         max_tokens: 1024
       }, {
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${config.hfKey.trim()}`,
           'Content-Type': 'application/json'
         },
@@ -66,14 +56,10 @@ export async function routeLuminaRequest(prompt, context = {}) {
       if (res.data?.choices?.[0]?.message?.content) {
         return { text: res.data.choices[0].message.content, modelUsed: 'HuggingFace Llama 3.2' };
       }
-    } catch (e) {
-      console.warn('[Router] Hugging Face Router failed:', e.message);
-    }
+    } catch (e) {}
   }
 
-  // =========================================================================
-  // TIER 3: GROQ (Llama-3.3-70B & Llama-3.1-8B)
-  // =========================================================================
+  // 3. Groq (Llama 3.3 70B & 8B)
   if (config.groqKey && config.groqKey.trim()) {
     const groqKey = config.groqKey.trim();
     try {
@@ -96,7 +82,6 @@ export async function routeLuminaRequest(prompt, context = {}) {
         return { text: res.data.choices[0].message.content, modelUsed: 'Groq Llama 3.3 70B' };
       }
     } catch (e) {
-      console.warn('[Router] Groq 70B failed, trying Groq 8B:', e.message);
       try {
         const res8b = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
           model: 'llama-3.1-8b-instant',
@@ -115,22 +100,14 @@ export async function routeLuminaRequest(prompt, context = {}) {
         if (res8b.data?.choices?.[0]?.message?.content) {
           return { text: res8b.data.choices[0].message.content, modelUsed: 'Groq Llama 3.1 8B' };
         }
-      } catch (e2) {
-        console.warn('[Router] Groq 8B failed:', e2.message);
-      }
+      } catch (e2) {}
     }
   }
 
-  // =========================================================================
-  // TIER 4: NVIDIA NIM (Nemotron 340B & DeepSeek-R1)
-  // =========================================================================
+  // 4. NVIDIA NIM (Nemotron 340B & DeepSeek-R1)
   if (config.nvidiaKey && config.nvidiaKey.trim()) {
     const nvidiaKey = config.nvidiaKey.trim();
-    const modelsToTry = [
-      'nvidia/nemotron-4-340b-instruct',
-      'deepseek-ai/deepseek-r1',
-      'meta/llama-3.3-70b-instruct'
-    ];
+    const modelsToTry = ['nvidia/nemotron-4-340b-instruct', 'deepseek-ai/deepseek-r1', 'meta/llama-3.3-70b-instruct'];
     for (const model of modelsToTry) {
       try {
         const res = await axios.post('https://integrate.api.nvidia.com/v1/chat/completions', {
@@ -151,41 +128,15 @@ export async function routeLuminaRequest(prompt, context = {}) {
         if (res.data?.choices?.[0]?.message?.content) {
           return { text: res.data.choices[0].message.content, modelUsed: `NVIDIA ${model}` };
         }
-      } catch (e) {
-        console.warn(`[Router] NVIDIA ${model} failed:`, e.message);
-      }
+      } catch (e) {}
     }
   }
 
-  // =========================================================================
-  // TIER 5: SMART CONVERSATIONAL & CODING CORE (Always Instant 0-second)
-  // =========================================================================
+  // 5. Smart Core Fallback
   const lower = (prompt || '').toLowerCase();
   if (lower.includes('html') || lower.includes('code') || lower.includes('likho')) {
     return { 
-      text: `Yeh raha responsive HTML & CSS starter code:
-
-\`\`\`html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lumina App</title>
-  <style>
-    body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    .card { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #38bdf8; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    h1 { color: #38bdf8; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Hello Flaxy!</h1>
-    <p>Lumina AI Autonomous Assistant Active.</p>
-  </div>
-</body>
-</html>
-\`\`\``, 
+      text: `Yeh raha responsive HTML & CSS starter code:\n\n\`\`\`html\n<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Lumina App</title>\n  <style>\n    body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }\n    .card { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #38bdf8; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }\n    h1 { color: #38bdf8; }\n  </style>\n</head>\n<body>\n  <div class="card">\n    <h1>Hello Flaxy!</h1>\n    <p>Lumina AI Autonomous Assistant Active.</p>\n  </div>\n</body>\n</html>\n\`\`\``, 
       modelUsed: 'Lumina Core' 
     };
   }
