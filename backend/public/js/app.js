@@ -1,4 +1,3 @@
-// Global Audio & TTS Engine
 let isSpeaking = false;
 function speakText(text) {
   if (!window.speechSynthesis) return;
@@ -13,7 +12,6 @@ function speakText(text) {
   window.speechSynthesis.speak(utt);
 }
 
-// UI Elements
 const chatLog = document.getElementById('chatLog');
 const userInput = document.getElementById('userInput');
 const statusText = document.getElementById('statusText');
@@ -49,7 +47,6 @@ function appendMessage(sender, text) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-// Main Send Handler
 window.handleSend = async function() {
   if (!userInput) return;
   const prompt = userInput.value.trim();
@@ -59,24 +56,6 @@ window.handleSend = async function() {
   userInput.value = '';
   if (statusText) statusText.innerText = 'Thinking...';
   if (orb) orb.classList.add('listening');
-
-  // Check hardware toggles if running inside Native APK
-  if (window.LuminaNative) {
-    if (prompt.toLowerCase().includes('torch on') || prompt.toLowerCase().includes('flashlight on')) {
-      window.LuminaNative.setTorch(true);
-      appendMessage('lumina', 'Torch on kar di hai.');
-      speakText('Torch on kar di hai.');
-      if (statusText) statusText.innerText = '"Wake up Lumina"';
-      return;
-    }
-    if (prompt.toLowerCase().includes('torch off') || prompt.toLowerCase().includes('flashlight off')) {
-      window.LuminaNative.setTorch(false);
-      appendMessage('lumina', 'Torch off kar di hai.');
-      speakText('Torch off kar di hai.');
-      if (statusText) statusText.innerText = '"Wake up Lumina"';
-      return;
-    }
-  }
 
   try {
     const res = await fetch('/api/chat', {
@@ -117,7 +96,6 @@ window.handleOrbClick = function() {
   speakText('Boliye Flaxy...');
 };
 
-// Continuous Voice Wake Listener
 (function initVoiceWake() {
   const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Speech) return;
